@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flarrd — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="s-logo">⚡ <span>Flarrd</span></div>
+  </div>
+  <nav class="s-nav">
+    <button class="s-item active" onclick="showTab('overview',this)"><span>📊</span>Overview</button>
+    <button class="s-item" onclick="showTab('links',this)"><span>🔗</span>My Links</button>
+    <button class="s-item" onclick="showTab('profile',this)"><span>✨</span>Profile</button>
+    <button class="s-item" onclick="showTab('appearance',this)"><span>🎨</span>Appearance</button>
+    <button class="s-item" onclick="showTab('analytics',this)"><span>📈</span>Analytics</button>
+    <button class="s-item" onclick="showTab('account',this)"><span>⚙️</span>Account</button>
+  </nav>
+  <div class="s-footer">
+    <div class="s-user" id="s-user">
+      <div class="s-avatar" id="s-avatar">?</div>
+      <div class="s-info">
+        <div class="s-name" id="s-name">Loading...</div>
+        <div class="s-handle" id="s-handle">@username</div>
+      </div>
+    </div>
+    <button class="s-signout" onclick="signOut()" title="Sign out">↩</button>
+  </div>
+</aside>
+
+<div class="mob-bar">
+  <button onclick="toggleSidebar()">☰</button>
+  <span class="mob-logo">⚡ Flarrd</span>
+</div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<main class="main" id="main">
+
+  <!-- OVERVIEW -->
+  <div class="tab active" id="tab-overview">
+    <div class="page-header">
+      <div><h1 class="page-title" id="greeting">Good morning!</h1><p class="page-sub">Here's what's happening with your profile</p></div>
+      <a class="btn-primary" id="view-profile-btn" href="#" target="_blank">👁 View My Profile →</a>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-icon">🔗</div><div class="stat-n" id="stat-links">0</div><div class="stat-l">Links</div></div>
+      <div class="stat-card"><div class="stat-icon">👆</div><div class="stat-n" id="stat-clicks">0</div><div class="stat-l">Total Clicks</div></div>
+      <div class="stat-card"><div class="stat-icon">👁</div><div class="stat-n" id="stat-views">0</div><div class="stat-l">Profile Views</div></div>
+      <div class="stat-card"><div class="stat-icon">🔥</div><div class="stat-n" id="stat-top">—</div><div class="stat-l">Top Link</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="card">
+        <div class="card-hdr"><h3>Your Links</h3><button class="btn-sm" onclick="showTab('links',null)">Manage →</button></div>
+        <div id="overview-links"></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><h3>Quick Profile Edit</h3></div>
+        <div class="fl"><label>Bio</label><textarea id="quick-bio" class="form-inp" style="height:72px;resize:none" placeholder="Tell the world who you are..."></textarea></div>
+        <button class="btn-primary" style="width:100%" onclick="saveQuickBio()">Save Bio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINKS -->
+  <div class="tab" id="tab-links">
+    <div class="page-header">
+      <div><h1 class="page-title">My Links</h1><p class="page-sub">Add and manage all your links</p></div>
+      <button class="btn-primary" onclick="openLinkModal()">+ Add Link</button>
+    </div>
+    <div id="links-list" class="links-list"></div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="tab" id="tab-profile">
+    <div class="page-header"><div><h1 class="page-title">Profile</h1><p class="page-sub">Customize what people see on your page</p></div></div>
+    <div class="two-col">
+      <div class="card">
+        <h3 class="card-title">Profile Info</h3>
+        <div class="avatar-edit">
+          <div class="big-avatar" id="big-avatar">?</div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Your display picture uses your initial. Google accounts show your Google avatar.</div>
+          </div>
+        </div>
+        <div class="fl"><label>Display Name</label><input type="text" id="p-name" class="form-inp" placeholder="Your name"/></div>
+        <div class="fl"><label>Username (your profile URL)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">Flarrd/u/</span><input type="text" id="p-username" class="form-inp" style="border-radius:0 9px 9px 0;border-left:none" placeholder="yourname"/></div>
+        </div>
+        <div class="fl"><label>Bio</label><textarea id="p-bio" class="form-inp" style="height:90px;resize:none" placeholder="Tell people about yourself..."></textarea></div>
+        <div class="fl"><label>Location (optional)</label><input type="text" id="p-location" class="form-inp" placeholder="City, Country"/></div>
+        <div class="fl"><label>Website (optional)</label><input type="text" id="p-website" class="form-inp" placeholder="https://yoursite.com"/></div>
+        <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+        <div class="save-msg" id="profile-msg"></div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">Profile Preview</h3>
+        <div class="profile-preview" id="profile-preview-box">
+          <!-- rendered by JS -->
+        </div>
+        <a class="btn-outline" id="preview-link-btn" href="#" target="_blank" style="display:block;text-align:center;margin-top:14px">🔗 Open Live Profile</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPEARANCE -->
+  <div class="tab" id="tab-appearance">
+    <div class="page-header"><div><h1 class="page-title">Appearance</h1><p class="page-sub">Choose a theme for your public profile</p></div></div>
+    <div class="card">
+      <h3 class="card-title" style="margin-bottom:20px">Themes</h3>
+      <div class="themes-grid" id="themes-grid">
+        <!-- rendered by JS -->
+      </div>
+      <button class="btn-primary" style="margin-top:20px" onclick="saveTheme()">Apply Theme</button>
+      <div class="save-msg" id="theme-msg"></div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="tab" id="tab-analytics">
+    <div class="page-header"><div><h1 class="page-title">Analytics</h1><p class="page-sub">Track your link performance</p></div></div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-icon">👆</div><div class="stat-n" id="an-clicks">0</div><div class="stat-l">Total Clicks</div></div>
+      <div class="stat-card"><div class="stat-icon">🔗</div><div class="stat-n" id="an-links">0</div><div class="stat-l">Active Links</div></div>
+      <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-n" id="an-today">0</div><div class="stat-l">Clicks Today</div></div>
+    </div>
+    <div class="card">
+      <h3 class="card-title">Link Performance</h3>
+      <div id="analytics-list" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT -->
+  <div class="tab" id="tab-account">
+    <div class="page-header"><div><h1 class="page-title">Account Settings</h1><p class="page-sub">Manage your account details</p></div></div>
+    <div class="two-col">
+      <div class="card">
+        <h3 class="card-title">Personal Info</h3>
+        <div class="fl"><label>Full Name</label><input type="text" id="acc-name" class="form-inp"/></div>
+        <div class="fl"><label>Email</label><input type="email" id="acc-email" class="form-inp"/></div>
+        <button class="btn-primary" onclick="saveAccount()">Update Info</button>
+        <div class="save-msg" id="acc-msg"></div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">Change Password</h3>
+        <div class="fl"><label>New Password</label><input type="password" id="acc-pw" class="form-inp" placeholder="Min 6 characters"/></div>
+        <div class="fl"><label>Confirm Password</label><input type="password" id="acc-pw2" class="form-inp" placeholder="Repeat password"/></div>
+        <button class="btn-primary" onclick="changePassword()">Update Password</button>
+        <div class="save-msg" id="pw-msg"></div>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(239,68,68,0.2)">
+      <h3 class="card-title" style="color:#ef4444">Danger Zone</h3>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Permanently delete your account and all data. Cannot be undone.</p>
+      <button class="btn-danger-outline" onclick="deleteAccount()">Delete My Account</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- LINK MODAL -->
+<div class="modal-bg" id="link-modal">
+  <div class="modal">
+    <div class="modal-hdr"><h3 id="link-modal-title">Add Link</h3><button onclick="closeLinkModal()">✕</button></div>
+    <input type="hidden" id="link-id"/>
+    <div class="fl"><label>Title</label><input type="text" id="link-title" class="form-inp" placeholder="e.g. My Portfolio"/></div>
+    <div class="fl"><label>URL</label><input type="url" id="link-url" class="form-inp" placeholder="https://..."/></div>
+    <div class="fl"><label>Icon (emoji)</label><input type="text" id="link-icon" class="form-inp" placeholder="🌐" maxlength="4"/></div>
+    <div class="fl"><label>Category</label>
+      <select id="link-cat" class="form-inp">
+        <option value="general">General</option>
+        <option value="social">Social Media</option>
+        <option value="work">Work / Portfolio</option>
+        <option value="store">Store / Shop</option>
+        <option value="music">Music</option>
+        <option value="video">Video</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeLinkModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveLink()">Save Link</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

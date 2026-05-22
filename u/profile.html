@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flarrd Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#07070f;--card:#0f0f1a;--accent:#7c3aed;--text:#f0f0fa;--muted:#6b6b8a;--btn-bg:#7c3aed;--btn-text:#fff;--border:rgba(255,255,255,0.08)}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 16px 80px}
+    .container{width:100%;max-width:480px}
+    .avatar{width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ec4899);display:grid;place-items:center;font-size:34px;font-weight:800;color:#fff;margin:0 auto 14px;overflow:hidden}
+    .avatar img{width:100%;height:100%;object-fit:cover}
+    .name{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;text-align:center;margin-bottom:4px}
+    .handle{font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
+    .bio{font-size:14px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:6px;max-width:360px;margin-left:auto;margin-right:auto}
+    .meta{display:flex;gap:14px;justify-content:center;margin-bottom:28px;flex-wrap:wrap}
+    .meta-item{font-size:12px;color:var(--muted)}
+    .links{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+    .link-btn{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--text);text-decoration:none;font-size:14px;font-weight:500;transition:all 0.2s;cursor:pointer}
+    .link-btn:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
+    .link-btn:active{transform:translateY(0)}
+    .link-icon{font-size:20px;flex-shrink:0}
+    .link-title{flex:1}
+    .link-arrow{color:var(--muted);font-size:16px}
+    .Flarrd-badge{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);text-decoration:none}
+    .Flarrd-badge:hover{color:var(--text)}
+    .Flarrd-badge span{font-weight:700}
+    .not-found{text-align:center;padding:60px 20px}
+    .not-found h2{font-family:'Syne',sans-serif;font-size:22px;margin-bottom:8px}
+    .not-found p{color:var(--muted);font-size:14px;margin-bottom:20px}
+    .not-found a{color:var(--accent);text-decoration:none}
+    .loading{text-align:center;padding:60px;color:var(--muted)}
+  </style>
+</head>
+<body>
+<div class="container" id="container">
+  <div class="loading">Loading profile...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
+<script src="../js/config.js"></script>
+<script>
+(async function(){
+  // Get username from URL: /u/username or ?u=username
+  var path = window.location.pathname;
+  var username = path.split('/').filter(Boolean).pop();
+  if (!username || username === 'profile.html') {
+    var params = new URLSearchParams(window.location.search);
+    username = params.get('u');
+  }
+  if (!username) { showNotFound(); return; }
+
+  // Load profile
+  var pRes = await supabase.from('profiles').select('*').eq('username', username).maybeSingle();
+  var profile = pRes.data;
+  if (!profile) { showNotFound(); return; }
+
+  // Apply theme
+  applyTheme(profile.theme || 'dark');
+
+  // Increment profile views
+  await supabase.from('profiles').update({ profile_views: (profile.profile_views||0)+1 }).eq('id', profile.id);
+
+  // Set page title
+  document.title = (profile.full_name || username) + ' — Flarrd';
+
+  // Load links
+  var lRes = await supabase.from('links').select('*').eq('user_id', profile.id).eq('active', true).order('position', { ascending: true });
+  var links = lRes.data || [];
+
+  // Render
+  var init = (profile.full_name || username).charAt(0).toUpperCase();
+  var avatarHtml = profile.avatar_url
+    ? '<img src="'+profile.avatar_url+'" alt="avatar"/>'
+    : init;
+
+  var html =
+    '<div class="avatar">'+avatarHtml+'</div>' +
+    '<div class="name">'+(profile.full_name || username)+'</div>' +
+    '<div class="handle">@'+username+'</div>' +
+    (profile.bio ? '<div class="bio">'+escHtml(profile.bio)+'</div>' : '') +
+    '<div class="meta">' +
+      (profile.location ? '<span class="meta-item">📍 '+escHtml(profile.location)+'</span>' : '') +
+      (profile.website ? '<span class="meta-item"><a href="'+profile.website+'" target="_blank" style="color:var(--accent);text-decoration:none">🌐 Website</a></span>' : '') +
+    '</div>' +
+    '<div class="links">' +
+      (links.length ? links.map(function(l){
+        return '<a class="link-btn" href="'+l.url+'" target="_blank" rel="noopener" onclick="trackClick(\''+l.id+'\','+l.clicks+')">' +
+          '<span class="link-icon">'+(l.icon||'🔗')+'</span>' +
+          '<span class="link-title">'+escHtml(l.title)+'</span>' +
+          '<span class="link-arrow">›</span>' +
+          '</a>';
+      }).join('') : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No links added yet.</div>') +
+    '</div>' +
+    '<a class="Flarrd-badge" href="../">⚡ <span>Flarrd</span> — Create yours free</a>';
+
+  document.getElementById('container').innerHTML = html;
+})();
+
+async function trackClick(linkId, currentClicks) {
+  await supabase.from('links').update({ clicks: (currentClicks||0)+1 }).eq('id', linkId);
+}
+
+function showNotFound() {
+  document.getElementById('container').innerHTML =
+    '<div class="not-found">' +
+    '<div style="font-size:48px;margin-bottom:16px">🔍</div>' +
+    '<h2>Profile not found</h2>' +
+    '<p>This Flarrd profile doesn\'t exist or may have been removed.</p>' +
+    '<a href="../">Create your own Flarrd →</a>' +
+    '</div>';
+}
+
+function applyTheme(themeId) {
+  var themes = {
+    dark:{ bg:'#07070f', card:'#0f0f1a', accent:'#7c3aed', text:'#f0f0fa', muted:'#6b6b8a', border:'rgba(255,255,255,0.08)' },
+    light:{ bg:'#f8f8ff', card:'#ffffff', accent:'#7c3aed', text:'#1a1a2e', muted:'#6b7280', border:'rgba(0,0,0,0.08)' },
+    midnight:{ bg:'#0a0e27', card:'#111535', accent:'#3b82f6', text:'#e2e8f0', muted:'#64748b', border:'rgba(255,255,255,0.07)' },
+    rose:{ bg:'#0f0709', card:'#1a0d12', accent:'#ec4899', text:'#fce7f3', muted:'#9d6878', border:'rgba(255,255,255,0.07)' },
+    forest:{ bg:'#040d06', card:'#0a1a0d', accent:'#10b981', text:'#d1fae5', muted:'#6b9a7a', border:'rgba(255,255,255,0.07)' },
+    sunset:{ bg:'#0f0800', card:'#1a1000', accent:'#f97316', text:'#fff7ed', muted:'#9a8060', border:'rgba(255,255,255,0.07)' },
+    nord:{ bg:'#2e3440', card:'#3b4252', accent:'#88c0d0', text:'#eceff4', muted:'#81a1c1', border:'rgba(255,255,255,0.1)' },
+    candy:{ bg:'#1a0a1a', card:'#2d1432', accent:'#c084fc', text:'#fdf4ff', muted:'#a78bca', border:'rgba(255,255,255,0.07)' }
+  };
+  var t = themes[themeId] || themes.dark;
+  var r = document.documentElement.style;
+  r.setProperty('--bg', t.bg);
+  r.setProperty('--card', t.card);
+  r.setProperty('--accent', t.accent);
+  r.setProperty('--text', t.text);
+  r.setProperty('--muted', t.muted);
+  r.setProperty('--border', t.border);
+}
+
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
