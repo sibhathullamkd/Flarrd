@@ -1,4 +1,3 @@
-/u/profile.html /u/profile.html 200
-/u/:username    /u/profile.html 200
+/u/:username    /u/profile.html   200
 /admin/*        /admin/index.html 200
 /dashboard      /dashboard.html   200
