@@ -52,7 +52,7 @@ function updateSidebarUser() {
   const hour = new Date().getHours();
   const g = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('greeting').textContent = g + ', ' + name.split(' ')[0] + '! 👋';
-  const profileUrl = SITE_URL + '/u/' + (profile.username || '');
+  const profileUrl = SITE_URL + '/u/profile.html?u=' + (profile.username || '');
   document.getElementById('view-profile-btn').href = profileUrl;
   const plb = document.getElementById('preview-link-btn');
   if (plb) plb.href = profileUrl;
@@ -86,7 +86,7 @@ function updateStats() {
 }
 
 function updateOverview() {
-  const url = SITE_URL + '/u/' + (profile.username || '');
+  const url = SITE_URL + '/u/profile.html?u=' + (profile.username || '');
   document.getElementById('view-profile-btn').href = url;
 }
 
