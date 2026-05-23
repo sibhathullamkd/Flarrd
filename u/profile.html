@@ -25,9 +25,9 @@
     .link-icon{font-size:20px;flex-shrink:0}
     .link-title{flex:1}
     .link-arrow{color:var(--muted);font-size:16px}
-    .Flarrd-badge{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);text-decoration:none}
-    .Flarrd-badge:hover{color:var(--text)}
-    .Flarrd-badge span{font-weight:700}
+    .flarrd-badge{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);text-decoration:none}
+    .flarrd-badge:hover{color:var(--text)}
+    .flarrd-badge span{font-weight:700}
     .not-found{text-align:center;padding:60px 20px}
     .not-found h2{font-family:'Syne',sans-serif;font-size:22px;margin-bottom:8px}
     .not-found p{color:var(--muted);font-size:14px;margin-bottom:20px}
@@ -40,80 +40,50 @@
   <div class="loading">Loading profile...</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
-<script src="../js/config.js"></script>
 <script>
-(async function(){
-  // Get username from URL: /u/username or ?u=username
-  var path = window.location.pathname;
-  var username = path.split('/').filter(Boolean).pop();
-  if (!username || username === 'profile.html') {
-    var params = new URLSearchParams(window.location.search);
-    username = params.get('u');
+// ── Config ────────────────────────────────────────────────────────────────────
+var SUPABASE_URL = 'https://ftnykcpmtwusryrivvwe.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_Z3RDyV6ZIwZ09EhfHMjZrA_WfXOI1KF';
+
+// ── Get username from ?u= or from path /u/username ────────────────────────────
+var params = new URLSearchParams(window.location.search);
+var username = params.get('u');
+if (!username) {
+  var parts = window.location.pathname.split('/').filter(Boolean);
+  // last part that isn't 'profile.html'
+  for (var i = parts.length - 1; i >= 0; i--) {
+    if (parts[i] !== 'profile.html') { username = parts[i]; break; }
   }
-  if (!username) { showNotFound(); return; }
-
-  // Load profile
-  var pRes = await supabase.from('profiles').select('*').eq('username', username).maybeSingle();
-  var profile = pRes.data;
-  if (!profile) { showNotFound(); return; }
-
-  // Apply theme
-  applyTheme(profile.theme || 'dark');
-
-  // Increment profile views
-  await supabase.from('profiles').update({ profile_views: (profile.profile_views||0)+1 }).eq('id', profile.id);
-
-  // Set page title
-  document.title = (profile.full_name || username) + ' — Flarrd';
-
-  // Load links
-  var lRes = await supabase.from('links').select('*').eq('user_id', profile.id).eq('active', true).order('position', { ascending: true });
-  var links = lRes.data || [];
-
-  // Render
-  var init = (profile.full_name || username).charAt(0).toUpperCase();
-  var avatarHtml = profile.avatar_url
-    ? '<img src="'+profile.avatar_url+'" alt="avatar"/>'
-    : init;
-
-  var html =
-    '<div class="avatar">'+avatarHtml+'</div>' +
-    '<div class="name">'+(profile.full_name || username)+'</div>' +
-    '<div class="handle">@'+username+'</div>' +
-    (profile.bio ? '<div class="bio">'+escHtml(profile.bio)+'</div>' : '') +
-    '<div class="meta">' +
-      (profile.location ? '<span class="meta-item">📍 '+escHtml(profile.location)+'</span>' : '') +
-      (profile.website ? '<span class="meta-item"><a href="'+profile.website+'" target="_blank" style="color:var(--accent);text-decoration:none">🌐 Website</a></span>' : '') +
-    '</div>' +
-    '<div class="links">' +
-      (links.length ? links.map(function(l){
-        return '<a class="link-btn" href="'+l.url+'" target="_blank" rel="noopener" onclick="trackClick(\''+l.id+'\','+l.clicks+')">' +
-          '<span class="link-icon">'+(l.icon||'🔗')+'</span>' +
-          '<span class="link-title">'+escHtml(l.title)+'</span>' +
-          '<span class="link-arrow">›</span>' +
-          '</a>';
-      }).join('') : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No links added yet.</div>') +
-    '</div>' +
-    '<a class="Flarrd-badge" href="../">⚡ <span>Flarrd</span> — Create yours free</a>';
-
-  document.getElementById('container').innerHTML = html;
-})();
-
-async function trackClick(linkId, currentClicks) {
-  await supabase.from('links').update({ clicks: (currentClicks||0)+1 }).eq('id', linkId);
 }
 
-function showNotFound() {
-  document.getElementById('container').innerHTML =
-    '<div class="not-found">' +
-    '<div style="font-size:48px;margin-bottom:16px">🔍</div>' +
-    '<h2>Profile not found</h2>' +
-    '<p>This Flarrd profile doesn\'t exist or may have been removed.</p>' +
-    '<a href="../">Create your own Flarrd →</a>' +
-    '</div>';
+// ── Fetch helper using raw REST (works with any Supabase key format) ──────────
+async function sbGet(table, query) {
+  var url = SUPABASE_URL + '/rest/v1/' + table + '?' + query;
+  var res = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Accept': 'application/json'
+    }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
 }
 
+async function sbPatch(table, query, body) {
+  var url = SUPABASE_URL + '/rest/v1/' + table + '?' + query;
+  await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+}
+
+// ── Themes ────────────────────────────────────────────────────────────────────
 function applyTheme(themeId) {
   var themes = {
     dark:{ bg:'#07070f', card:'#0f0f1a', accent:'#7c3aed', text:'#f0f0fa', muted:'#6b6b8a', border:'rgba(255,255,255,0.08)' },
@@ -138,6 +108,80 @@ function applyTheme(themeId) {
 function escHtml(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+function showNotFound() {
+  document.getElementById('container').innerHTML =
+    '<div class="not-found">' +
+    '<div style="font-size:48px;margin-bottom:16px">🔍</div>' +
+    '<h2>Profile not found</h2>' +
+    '<p>This Flarrd profile doesn\'t exist or may have been removed.</p>' +
+    '<a href="../">Create your own Flarrd →</a>' +
+    '</div>';
+}
+
+async function trackClick(linkId, currentClicks) {
+  await sbPatch('links', 'id=eq.' + linkId, { clicks: (currentClicks||0) + 1 });
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+(async function(){
+  if (!username) { showNotFound(); return; }
+
+  try {
+    // Fetch profile
+    var profiles = await sbGet('profiles', 'username=eq.' + encodeURIComponent(username) + '&limit=1');
+    if (!profiles || profiles.length === 0) { showNotFound(); return; }
+    var profile = profiles[0];
+
+    // Apply theme
+    applyTheme(profile.theme || 'dark');
+
+    // Increment views (fire and forget)
+    sbPatch('profiles', 'id=eq.' + profile.id, { profile_views: (profile.profile_views||0) + 1 });
+
+    // Set page title
+    document.title = (profile.full_name || username) + ' — Flarrd';
+
+    // Fetch active links
+    var links = await sbGet('links', 'user_id=eq.' + profile.id + '&active=eq.true&order=position.asc');
+    links = links || [];
+
+    // Render avatar
+    var init = (profile.full_name || username).charAt(0).toUpperCase();
+    var avatarHtml = profile.avatar_url
+      ? '<img src="' + profile.avatar_url + '" alt="avatar"/>'
+      : init;
+
+    var html =
+      '<div class="avatar">' + avatarHtml + '</div>' +
+      '<div class="name">' + escHtml(profile.full_name || username) + '</div>' +
+      '<div class="handle">@' + escHtml(username) + '</div>' +
+      (profile.bio ? '<div class="bio">' + escHtml(profile.bio) + '</div>' : '') +
+      '<div class="meta">' +
+        (profile.location ? '<span class="meta-item">📍 ' + escHtml(profile.location) + '</span>' : '') +
+        (profile.website ? '<span class="meta-item"><a href="' + profile.website + '" target="_blank" style="color:var(--accent);text-decoration:none">🌐 Website</a></span>' : '') +
+      '</div>' +
+      '<div class="links">' +
+        (links.length
+          ? links.map(function(l){
+              return '<a class="link-btn" href="' + escHtml(l.url) + '" target="_blank" rel="noopener" onclick="trackClick(\'' + l.id + '\',' + (l.clicks||0) + ')">' +
+                '<span class="link-icon">' + (l.icon||'🔗') + '</span>' +
+                '<span class="link-title">' + escHtml(l.title) + '</span>' +
+                '<span class="link-arrow">›</span>' +
+                '</a>';
+            }).join('')
+          : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No links added yet.</div>'
+        ) +
+      '</div>' +
+      '<a class="flarrd-badge" href="../">⚡ <span>Flarrd</span> — Create yours free</a>';
+
+    document.getElementById('container').innerHTML = html;
+
+  } catch(err) {
+    console.error('Profile load error:', err);
+    showNotFound();
+  }
+})();
 </script>
 </body>
 </html>
