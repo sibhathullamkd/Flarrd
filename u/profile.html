@@ -5,39 +5,126 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Flarrd Profile</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--bg:#07070f;--card:#0f0f1a;--accent:#7c3aed;--text:#f0f0fa;--muted:#6b6b8a;--btn-bg:#7c3aed;--btn-text:#fff;--border:rgba(255,255,255,0.08)}
-    html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 16px 80px}
-    .container{width:100%;max-width:480px}
-    .avatar{width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ec4899);display:grid;place-items:center;font-size:34px;font-weight:800;color:#fff;margin:0 auto 14px;overflow:hidden}
+    :root{
+      --bg:#0a0a0f;--card:#111118;--accent:#7c3aed;--text:#f4f4f8;
+      --muted:#6b6b8a;--border:rgba(255,255,255,0.07);--glow:rgba(124,58,237,0.18);
+    }
+    html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif}
+    body{display:flex;flex-direction:column;align-items:center;padding:0 0 80px}
+
+    /* HERO GRADIENT BG */
+    .bg-glow{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(ellipse,rgba(124,58,237,0.12) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+    .container{width:100%;max-width:520px;padding:0 20px;position:relative;z-index:1}
+
+    /* HEADER SPACER */
+    .top-pad{height:56px}
+
+    /* AVATAR */
+    .avatar-wrap{display:flex;justify-content:center;margin-bottom:18px;position:relative}
+    .avatar{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ec4899);display:grid;place-items:center;font-size:36px;font-weight:700;color:#fff;overflow:hidden;border:3px solid rgba(255,255,255,0.08);box-shadow:0 0 0 6px rgba(124,58,237,0.1),0 20px 60px rgba(0,0,0,0.5)}
     .avatar img{width:100%;height:100%;object-fit:cover}
-    .name{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;text-align:center;margin-bottom:4px}
-    .handle{font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
-    .bio{font-size:14px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:6px;max-width:360px;margin-left:auto;margin-right:auto}
-    .meta{display:flex;gap:14px;justify-content:center;margin-bottom:28px;flex-wrap:wrap}
-    .meta-item{font-size:12px;color:var(--muted)}
-    .links{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
-    .link-btn{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--text);text-decoration:none;font-size:14px;font-weight:500;transition:all 0.2s;cursor:pointer}
-    .link-btn:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
-    .link-btn:active{transform:translateY(0)}
-    .link-icon{font-size:20px;flex-shrink:0}
-    .link-title{flex:1}
-    .link-arrow{color:var(--muted);font-size:16px}
-    .flarrd-badge{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);text-decoration:none}
-    .flarrd-badge:hover{color:var(--text)}
-    .flarrd-badge span{font-weight:700}
-    .not-found{text-align:center;padding:60px 20px}
-    .not-found h2{font-family:'Syne',sans-serif;font-size:22px;margin-bottom:8px}
-    .not-found p{color:var(--muted);font-size:14px;margin-bottom:20px}
-    .not-found a{color:var(--accent);text-decoration:none}
-    .loading{text-align:center;padding:60px;color:var(--muted)}
+
+    /* NAME & HANDLE */
+    .profile-name{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;text-align:center;letter-spacing:-0.5px;margin-bottom:4px}
+    .profile-handle{font-size:13px;color:var(--muted);text-align:center;margin-bottom:10px}
+    .profile-bio{font-size:14px;color:rgba(244,244,248,0.65);text-align:center;line-height:1.65;margin-bottom:16px;max-width:380px;margin-left:auto;margin-right:auto}
+
+    /* META PILLS */
+    .meta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
+    .meta-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:100px;font-size:12px;color:var(--muted);text-decoration:none;transition:all 0.2s}
+    .meta-pill:hover{background:rgba(255,255,255,0.09);color:var(--text)}
+    .meta-pill i{font-size:11px}
+
+    /* SECTION LABEL */
+    .section-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:14px;opacity:0.6}
+
+    /* LINK BUTTONS — Geek Updates style */
+    .links{display:flex;flex-direction:column;gap:10px;margin-bottom:36px}
+    .link-btn{
+      display:flex;align-items:center;gap:14px;
+      padding:16px 20px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px;
+      color:var(--text);text-decoration:none;
+      font-size:14px;font-weight:500;
+      transition:all 0.25s cubic-bezier(0.16,1,0.3,1);
+      cursor:pointer;
+      position:relative;overflow:hidden;
+      animation:slideUp 0.4s ease both;
+    }
+    .link-btn::before{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(135deg,rgba(124,58,237,0.08),transparent);
+      opacity:0;transition:opacity 0.25s;
+    }
+    .link-btn:hover{
+      border-color:rgba(124,58,237,0.35);
+      background:rgba(255,255,255,0.07);
+      transform:translateY(-2px) scale(1.005);
+      box-shadow:0 12px 32px rgba(0,0,0,0.35),0 0 0 1px rgba(124,58,237,0.15);
+    }
+    .link-btn:hover::before{opacity:1}
+    .link-btn:active{transform:translateY(0) scale(1);box-shadow:none}
+
+    .link-icon-wrap{
+      width:40px;height:40px;border-radius:10px;
+      background:rgba(255,255,255,0.06);
+      display:grid;place-items:center;
+      font-size:18px;flex-shrink:0;
+      border:1px solid rgba(255,255,255,0.06);
+      transition:all 0.2s;
+    }
+    .link-btn:hover .link-icon-wrap{background:rgba(124,58,237,0.15);border-color:rgba(124,58,237,0.25)}
+    .link-icon-wrap i{font-size:16px}
+    .link-icon-wrap .emoji{font-size:20px;line-height:1}
+    .link-label{flex:1;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;letter-spacing:-0.2px}
+    .link-arrow{color:var(--muted);font-size:13px;transition:transform 0.2s,color 0.2s;flex-shrink:0}
+    .link-btn:hover .link-arrow{transform:translate(2px,-2px);color:var(--accent)}
+
+    @keyframes slideUp{
+      from{opacity:0;transform:translateY(16px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+
+    /* BADGE */
+    .flarrd-badge{
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      font-size:12px;color:rgba(255,255,255,0.25);text-decoration:none;
+      padding:10px;transition:color 0.2s;
+    }
+    .flarrd-badge:hover{color:rgba(255,255,255,0.5)}
+    .flarrd-badge strong{color:rgba(255,255,255,0.4)}
+
+    /* NOT FOUND */
+    .not-found{text-align:center;padding:80px 20px}
+    .not-found .nf-icon{font-size:52px;margin-bottom:20px;opacity:0.4}
+    .not-found h2{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px}
+    .not-found p{color:var(--muted);font-size:14px;margin-bottom:24px}
+    .not-found a{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:var(--accent);color:#fff;border-radius:100px;text-decoration:none;font-size:13px;font-weight:600;transition:opacity 0.2s}
+    .not-found a:hover{opacity:0.85}
+
+    .loading-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px}
+    .loader{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:13px;color:var(--muted)}
+
+    /* THEME VARS OVERRIDE */
+    .theme-light{--bg:#f5f5fa;--card:#fff;--text:#0f0f1a;--muted:#6b7280;--border:rgba(0,0,0,0.08)}
   </style>
 </head>
 <body>
+<div class="bg-glow"></div>
 <div class="container" id="container">
-  <div class="loading">Loading profile...</div>
+  <div class="loading-wrap">
+    <div class="loader"></div>
+    <div class="loading-text">Loading profile...</div>
+  </div>
 </div>
 
 <script>
@@ -45,142 +132,174 @@
 var SUPABASE_URL = 'https://ftnykcpmtwusryrivvwe.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_Z3RDyV6ZIwZ09EhfHMjZrA_WfXOI1KF';
 
-// ── Get username from ?u= or from path /u/username ────────────────────────────
+// ── Platform icon map (FA classes) ───────────────────────────────────────────
+var PLATFORM_ICONS = {
+  instagram:'fa-brands fa-instagram',twitter:'fa-brands fa-twitter',x:'fa-brands fa-x-twitter',
+  youtube:'fa-brands fa-youtube',tiktok:'fa-brands fa-tiktok',facebook:'fa-brands fa-facebook',
+  linkedin:'fa-brands fa-linkedin',github:'fa-brands fa-github',twitch:'fa-brands fa-twitch',
+  discord:'fa-brands fa-discord',telegram:'fa-brands fa-telegram',whatsapp:'fa-brands fa-whatsapp',
+  snapchat:'fa-brands fa-snapchat',pinterest:'fa-brands fa-pinterest',reddit:'fa-brands fa-reddit',
+  spotify:'fa-brands fa-spotify',soundcloud:'fa-brands fa-soundcloud',
+  medium:'fa-brands fa-medium',substack:'fa-solid fa-envelope-open-text',
+  behance:'fa-brands fa-behance',dribbble:'fa-brands fa-dribbble',
+  figma:'fa-brands fa-figma',notion:'fa-brands fa-notion',
+  patreon:'fa-brands fa-patreon',gumroad:'fa-solid fa-store',
+  amazon:'fa-brands fa-amazon',etsy:'fa-brands fa-etsy',
+  website:'fa-solid fa-globe',link:'fa-solid fa-link',email:'fa-solid fa-envelope',
+  phone:'fa-solid fa-phone',
+};
+
+function getPlatformIcon(url, iconField) {
+  // If icon field looks like an FA class, use it
+  if (iconField && iconField.startsWith('fa-')) return '<i class="'+iconField+'"></i>';
+  // If icon field is an emoji, wrap it
+  if (iconField && iconField !== '🔗' && /\p{Emoji}/u.test(iconField)) return '<span class="emoji">'+iconField+'</span>';
+  // Detect from URL
+  try {
+    var host = new URL(url).hostname.replace('www.','');
+    for (var key in PLATFORM_ICONS) {
+      if (host.includes(key)) return '<i class="'+PLATFORM_ICONS[key]+'"></i>';
+    }
+  } catch(e){}
+  if (iconField && iconField !== '🔗') return '<span class="emoji">'+iconField+'</span>';
+  return '<i class="fa-solid fa-arrow-up-right-from-square"></i>';
+}
+
+// ── Get username ──────────────────────────────────────────────────────────────
 var params = new URLSearchParams(window.location.search);
 var username = params.get('u');
 if (!username) {
   var parts = window.location.pathname.split('/').filter(Boolean);
-  // last part that isn't 'profile.html'
   for (var i = parts.length - 1; i >= 0; i--) {
     if (parts[i] !== 'profile.html') { username = parts[i]; break; }
   }
 }
 
-// ── Fetch helper using raw REST (works with any Supabase key format) ──────────
+// ── REST API helpers ──────────────────────────────────────────────────────────
 async function sbGet(table, query) {
-  var url = SUPABASE_URL + '/rest/v1/' + table + '?' + query;
-  var res = await fetch(url, {
-    headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-      'Accept': 'application/json'
-    }
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
+    headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Accept':'application/json'}
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
 }
-
 async function sbPatch(table, query, body) {
-  var url = SUPABASE_URL + '/rest/v1/' + table + '?' + query;
-  await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
+  await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
+    method:'PATCH',
+    headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(body)
   });
 }
 
 // ── Themes ────────────────────────────────────────────────────────────────────
-function applyTheme(themeId) {
-  var themes = {
-    dark:{ bg:'#07070f', card:'#0f0f1a', accent:'#7c3aed', text:'#f0f0fa', muted:'#6b6b8a', border:'rgba(255,255,255,0.08)' },
-    light:{ bg:'#f8f8ff', card:'#ffffff', accent:'#7c3aed', text:'#1a1a2e', muted:'#6b7280', border:'rgba(0,0,0,0.08)' },
-    midnight:{ bg:'#0a0e27', card:'#111535', accent:'#3b82f6', text:'#e2e8f0', muted:'#64748b', border:'rgba(255,255,255,0.07)' },
-    rose:{ bg:'#0f0709', card:'#1a0d12', accent:'#ec4899', text:'#fce7f3', muted:'#9d6878', border:'rgba(255,255,255,0.07)' },
-    forest:{ bg:'#040d06', card:'#0a1a0d', accent:'#10b981', text:'#d1fae5', muted:'#6b9a7a', border:'rgba(255,255,255,0.07)' },
-    sunset:{ bg:'#0f0800', card:'#1a1000', accent:'#f97316', text:'#fff7ed', muted:'#9a8060', border:'rgba(255,255,255,0.07)' },
-    nord:{ bg:'#2e3440', card:'#3b4252', accent:'#88c0d0', text:'#eceff4', muted:'#81a1c1', border:'rgba(255,255,255,0.1)' },
-    candy:{ bg:'#1a0a1a', card:'#2d1432', accent:'#c084fc', text:'#fdf4ff', muted:'#a78bca', border:'rgba(255,255,255,0.07)' }
-  };
-  var t = themes[themeId] || themes.dark;
-  var r = document.documentElement.style;
-  r.setProperty('--bg', t.bg);
-  r.setProperty('--card', t.card);
-  r.setProperty('--accent', t.accent);
-  r.setProperty('--text', t.text);
-  r.setProperty('--muted', t.muted);
-  r.setProperty('--border', t.border);
+var THEMES = {
+  dark:{bg:'#0a0a0f',card:'#111118',accent:'#7c3aed',text:'#f4f4f8',muted:'#6b6b8a',border:'rgba(255,255,255,0.07)'},
+  light:{bg:'#f5f5fa',card:'#ffffff',accent:'#7c3aed',text:'#0f0f1a',muted:'#6b7280',border:'rgba(0,0,0,0.08)'},
+  midnight:{bg:'#080c1e',card:'#0e1228',accent:'#3b82f6',text:'#e2e8f0',muted:'#64748b',border:'rgba(255,255,255,0.07)'},
+  rose:{bg:'#0f0709',card:'#1a0d12',accent:'#ec4899',text:'#fce7f3',muted:'#9d6878',border:'rgba(255,255,255,0.07)'},
+  forest:{bg:'#030d06',card:'#081509',accent:'#10b981',text:'#d1fae5',muted:'#6b9a7a',border:'rgba(255,255,255,0.07)'},
+  sunset:{bg:'#0f0800',card:'#1a1000',accent:'#f97316',text:'#fff7ed',muted:'#9a8060',border:'rgba(255,255,255,0.07)'},
+  nord:{bg:'#2e3440',card:'#3b4252',accent:'#88c0d0',text:'#eceff4',muted:'#81a1c1',border:'rgba(255,255,255,0.1)'},
+  candy:{bg:'#130918',card:'#1e1028',accent:'#c084fc',text:'#fdf4ff',muted:'#a78bca',border:'rgba(255,255,255,0.07)'}
+};
+function applyTheme(id) {
+  var t = THEMES[id] || THEMES.dark, r = document.documentElement.style;
+  r.setProperty('--bg',t.bg); r.setProperty('--card',t.card);
+  r.setProperty('--accent',t.accent); r.setProperty('--text',t.text);
+  r.setProperty('--muted',t.muted); r.setProperty('--border',t.border);
+  r.setProperty('--glow','rgba('+hexToRgb(t.accent)+',0.15)');
+  document.body.style.background = t.bg;
+}
+function hexToRgb(hex) {
+  var r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? parseInt(r[1],16)+','+parseInt(r[2],16)+','+parseInt(r[3],16) : '124,58,237';
 }
 
-function escHtml(str) {
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function showNotFound() {
   document.getElementById('container').innerHTML =
     '<div class="not-found">' +
-    '<div style="font-size:48px;margin-bottom:16px">🔍</div>' +
+    '<div class="nf-icon"><i class="fa-solid fa-magnifying-glass"></i></div>' +
     '<h2>Profile not found</h2>' +
     '<p>This Flarrd profile doesn\'t exist or may have been removed.</p>' +
-    '<a href="../">Create your own Flarrd →</a>' +
+    '<a href="../"><i class="fa-solid fa-bolt"></i> Create your own Flarrd</a>' +
     '</div>';
 }
 
 async function trackClick(linkId, currentClicks) {
-  await sbPatch('links', 'id=eq.' + linkId, { clicks: (currentClicks||0) + 1 });
+  sbPatch('links','id=eq.'+linkId,{clicks:(currentClicks||0)+1});
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 (async function(){
   if (!username) { showNotFound(); return; }
-
   try {
-    // Fetch profile
-    var profiles = await sbGet('profiles', 'username=eq.' + encodeURIComponent(username) + '&limit=1');
-    if (!profiles || profiles.length === 0) { showNotFound(); return; }
+    var profiles = await sbGet('profiles','username=eq.'+encodeURIComponent(username)+'&limit=1');
+    if (!profiles||!profiles.length) { showNotFound(); return; }
     var profile = profiles[0];
 
-    // Apply theme
-    applyTheme(profile.theme || 'dark');
+    applyTheme(profile.theme||'dark');
+    document.title = (profile.full_name||username)+' — Flarrd';
 
-    // Increment views (fire and forget)
-    sbPatch('profiles', 'id=eq.' + profile.id, { profile_views: (profile.profile_views||0) + 1 });
+    sbPatch('profiles','id=eq.'+profile.id,{profile_views:(profile.profile_views||0)+1});
 
-    // Set page title
-    document.title = (profile.full_name || username) + ' — Flarrd';
+    var links = await sbGet('links','user_id=eq.'+profile.id+'&active=eq.true&order=position.asc');
+    links = links||[];
 
-    // Fetch active links
-    var links = await sbGet('links', 'user_id=eq.' + profile.id + '&active=eq.true&order=position.asc');
-    links = links || [];
-
-    // Render avatar
-    var init = (profile.full_name || username).charAt(0).toUpperCase();
+    var init = (profile.full_name||username).charAt(0).toUpperCase();
     var avatarHtml = profile.avatar_url
-      ? '<img src="' + profile.avatar_url + '" alt="avatar"/>'
+      ? '<img src="'+escHtml(profile.avatar_url)+'" alt="avatar"/>'
       : init;
 
+    var metaHtml = '';
+    if (profile.location) metaHtml += '<span class="meta-pill"><i class="fa-solid fa-location-dot"></i>'+escHtml(profile.location)+'</span>';
+    if (profile.website) metaHtml += '<a class="meta-pill" href="'+escHtml(profile.website)+'" target="_blank" rel="noopener"><i class="fa-solid fa-globe"></i>Website</a>';
+
+    var linksHtml = links.length
+      ? links.map(function(l,i){
+          var icon = getPlatformIcon(l.url, l.icon);
+          return '<a class="link-btn" href="'+escHtml(l.url)+'" target="_blank" rel="noopener" '+
+            'style="animation-delay:'+(i*0.06)+'s" '+
+            'onclick="trackClick(\''+l.id+'\','+(l.clicks||0)+')">' +
+            '<div class="link-icon-wrap">'+icon+'</div>' +
+            '<span class="link-label">'+escHtml(l.title)+'</span>' +
+            '<i class="fa-solid fa-arrow-up-right link-arrow"></i>' +
+            '</a>';
+        }).join('')
+      : '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0;opacity:0.7">No links added yet.</div>';
+
     var html =
-      '<div class="avatar">' + avatarHtml + '</div>' +
-      '<div class="name">' + escHtml(profile.full_name || username) + '</div>' +
-      '<div class="handle">@' + escHtml(username) + '</div>' +
-      (profile.bio ? '<div class="bio">' + escHtml(profile.bio) + '</div>' : '') +
-      '<div class="meta">' +
-        (profile.location ? '<span class="meta-item">📍 ' + escHtml(profile.location) + '</span>' : '') +
-        (profile.website ? '<span class="meta-item"><a href="' + profile.website + '" target="_blank" style="color:var(--accent);text-decoration:none">🌐 Website</a></span>' : '') +
-      '</div>' +
-      '<div class="links">' +
-        (links.length
-          ? links.map(function(l){
-              return '<a class="link-btn" href="' + escHtml(l.url) + '" target="_blank" rel="noopener" onclick="trackClick(\'' + l.id + '\',' + (l.clicks||0) + ')">' +
-                '<span class="link-icon">' + (l.icon||'🔗') + '</span>' +
-                '<span class="link-title">' + escHtml(l.title) + '</span>' +
-                '<span class="link-arrow">›</span>' +
-                '</a>';
-            }).join('')
-          : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No links added yet.</div>'
-        ) +
-      '</div>' +
-      '<a class="flarrd-badge" href="../">⚡ <span>Flarrd</span> — Create yours free</a>';
+      '<div class="top-pad"></div>' +
+      '<div class="avatar-wrap"><div class="avatar">'+avatarHtml+'</div></div>' +
+      '<div class="profile-name">'+escHtml(profile.full_name||username)+'</div>' +
+      '<div class="profile-handle">@'+escHtml(username)+'</div>' +
+      (profile.bio ? '<div class="profile-bio">'+escHtml(profile.bio)+'</div>' : '') +
+      (metaHtml ? '<div class="meta-row">'+metaHtml+'</div>' : '<div style="height:32px"></div>') +
+      (links.length ? '<div class="section-label">Links</div>' : '') +
+      '<div class="links">'+linksHtml+'</div>' +
+      '<a class="flarrd-badge" href="../"><i class="fa-solid fa-bolt"></i> Powered by <strong>Flarrd</strong></a>';
 
     document.getElementById('container').innerHTML = html;
-
   } catch(err) {
-    console.error('Profile load error:', err);
+    console.error(err);
     showNotFound();
   }
+})();
+
+// Live presence tracking
+(function(){
+  var SB='https://ftnykcpmtwusryrivvwe.supabase.co';
+  var KEY='sb_publishable_Z3RDyV6ZIwZ09EhfHMjZrA_WfXOI1KF';
+  var vid=sessionStorage.getItem('fv')||Math.random().toString(36).slice(2);
+  sessionStorage.setItem('fv',vid);
+  async function ping(){
+    var ex=await fetch(SB+'/rest/v1/live_presence?visitor_id=eq.'+vid,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Accept':'application/json'}}).then(r=>r.json()).catch(()=>[]);
+    var body={visitor_id:vid,user_agent:navigator.userAgent,page:window.location.pathname+window.location.search,last_seen:new Date().toISOString()};
+    var isNew=!ex||!ex.length;
+    await fetch(SB+'/rest/v1/live_presence'+(isNew?'':'?visitor_id=eq.'+vid),{method:isNew?'POST':'PATCH',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});
+  }
+  ping(); setInterval(ping,60000);
 })();
 </script>
 </body>
