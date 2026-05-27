@@ -311,34 +311,156 @@ async function renderAnalyticsGraphs() {
 
 // ── LIVE CONSOLE ──────────────────────────────────────────────────────────────
 var consoleLogs = [];
-function startConsolePolling() {
-  addConsoleLog('info', 'Console connected');
-  addConsoleLog('info', 'Total users: ' + allUsers.length);
-  addConsoleLog('info', 'Total links: ' + allLinks.length);
-  addConsoleLog('info', 'Total clicks: ' + allLinks.reduce((s,l)=>s+(l.clicks||0),0));
-  renderConsole();
-  consoleInterval = setInterval(async () => {
-    var presence = await rest('live_presence', 'order=last_seen.desc&limit=5');
-    addConsoleLog('event', 'Live visitors: ' + (presence||[]).length);
-    renderConsole();
-  }, 15000);
+var _consoleQueue = [];   // lines waiting to be printed one-by-one
+var _consolePrinting = false;
+var _lastStats = {};      // track changes for delta reporting
+
+// Print queued lines one at a time with a delay for the "live" feel
+function _flushQueue() {
+  if (_consolePrinting || !_consoleQueue.length) return;
+  _consolePrinting = true;
+  var delay = 0;
+  while (_consoleQueue.length) {
+    (function(item, d) {
+      setTimeout(() => {
+        consoleLogs.unshift(item);
+        if (consoleLogs.length > 300) consoleLogs.pop();
+        renderConsole();
+        if (!_consoleQueue.length) _consolePrinting = false;
+      }, d);
+    })(_consoleQueue.shift(), delay);
+    delay += 900; // ~1 line per second
+  }
 }
 
 function addConsoleLog(type, msg) {
-  consoleLogs.unshift({ time: new Date().toLocaleTimeString(), type, msg });
-  if (consoleLogs.length > 200) consoleLogs.pop();
+  _consoleQueue.push({ time: new Date().toLocaleTimeString(), type, msg });
+  _flushQueue();
 }
 
 function renderConsole() {
   const el = document.getElementById('console-output');
   if (!el) return;
-  const colors = { info:'#88c0d0', event:'#10b981', warn:'#f97316', error:'#ef4444' };
-  el.innerHTML = consoleLogs.map(l =>
-    `<div class="console-line"><span class="console-time">${l.time}</span><span class="console-type" style="color:${colors[l.type]||'#aaa'}">[${l.type.toUpperCase()}]</span><span class="console-msg">${esc(l.msg)}</span></div>`
-  ).join('');
+  const colors = {
+    info:    '#88c0d0',  // cyan-blue: system info
+    event:   '#10b981',  // green: positive events
+    warn:    '#f59e0b',  // amber: warnings
+    error:   '#ef4444',  // red: errors
+    data:    '#a78bfa',  // purple: data values
+    stat:    '#38bdf8',  // sky: stats/metrics
+    user:    '#34d399',  // emerald: user activity
+    sys:     '#64748b',  // slate: system/background
+  };
+  el.innerHTML = consoleLogs.map(l => {
+    var col = colors[l.type] || '#94a3b8';
+    var tag = l.type.toUpperCase().padEnd(5);
+    return `<div class="console-line">` +
+      `<span class="console-time">${l.time}</span>` +
+      `<span class="console-type" style="color:${col}">[${tag}]</span>` +
+      `<span class="console-msg" style="color:${l.type==='error'?'#fca5a5':l.type==='warn'?'#fde68a':'#e2e8f0'}">${esc(l.msg)}</span>` +
+    `</div>`;
+  }).join('');
 }
 
-function clearConsole() { consoleLogs = []; renderConsole(); }
+function clearConsole() {
+  consoleLogs = []; _consoleQueue = []; _consolePrinting = false;
+  renderConsole();
+}
+
+async function startConsolePolling() {
+  // Initial burst of startup lines
+  addConsoleLog('sys',  '━━━ Flarrd Admin Console ━━━━━━━━━━━━━━━━━━');
+  addConsoleLog('info', 'Connection established → Supabase');
+  addConsoleLog('stat', 'Users total: ' + allUsers.length);
+  addConsoleLog('stat', 'Links total: ' + allLinks.length);
+  addConsoleLog('stat', 'Clicks total: ' + allLinks.reduce((s,l)=>s+(l.clicks||0),0));
+  addConsoleLog('stat', 'Profile views: ' + allUsers.reduce((s,u)=>s+(u.profile_views||0),0));
+
+  var weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  var newThisWeek = allUsers.filter(u => new Date(u.created_at) > weekAgo).length;
+  addConsoleLog('user', 'New signups (7d): ' + newThisWeek);
+
+  var googleUsers = allUsers.filter(u=>u.provider==='google').length;
+  var emailUsers  = allUsers.filter(u=>u.provider!=='google').length;
+  addConsoleLog('info', 'Auth providers → Google: ' + googleUsers + '  Email: ' + emailUsers);
+
+  var topLink = [...allLinks].sort((a,b)=>(b.clicks||0)-(a.clicks||0))[0];
+  if (topLink) addConsoleLog('data', 'Top link: "' + topLink.title + '" (' + (topLink.clicks||0) + ' clicks)');
+
+  addConsoleLog('sys',  '━━━ Live monitoring started ━━━━━━━━━━━━━━━');
+
+  // Snapshot for delta detection
+  _lastStats = {
+    users: allUsers.length,
+    links: allLinks.length,
+    clicks: allLinks.reduce((s,l)=>s+(l.clicks||0),0),
+    views: allUsers.reduce((s,u)=>s+(u.profile_views||0),0),
+  };
+
+  var tick = 0;
+  consoleInterval = setInterval(async () => {
+    tick++;
+    var now = new Date().toLocaleTimeString();
+
+    // Every tick: check live presence
+    var presence = await rest('live_presence', 'order=last_seen.desc&limit=20');
+    presence = presence || [];
+    var active = presence.filter(p => (Date.now()-new Date(p.last_seen).getTime()) < 3*60*1000);
+
+    if (active.length > 0) {
+      addConsoleLog('event', 'Live visitors: ' + active.length + ' active now');
+      active.slice(0,2).forEach(p => {
+        var ua = p.user_agent||'';
+        var br = ua.includes('Chrome')?'Chrome':ua.includes('Firefox')?'Firefox':ua.includes('Safari')?'Safari':'Browser';
+        addConsoleLog('user', '  ↳ ' + br + ' on ' + (p.page||'unknown page'));
+      });
+    }
+
+    // Every 3 ticks: check for new users / click changes
+    if (tick % 3 === 0) {
+      var freshProfiles = await rest('profiles', 'order=created_at.desc&limit=50');
+      freshProfiles = freshProfiles || [];
+      var freshLinks = await rest('links', 'order=clicks.desc&limit=100');
+      freshLinks = freshLinks || [];
+
+      var newUsers   = freshProfiles.length - _lastStats.users;
+      var newClicks  = freshLinks.reduce((s,l)=>s+(l.clicks||0),0);
+      var newViews   = freshProfiles.reduce((s,u)=>s+(u.profile_views||0),0);
+      var clickDelta = newClicks - _lastStats.clicks;
+      var viewDelta  = newViews  - _lastStats.views;
+
+      if (newUsers > 0) {
+        addConsoleLog('user', '🆕 New signup detected! Total users: ' + freshProfiles.length);
+        allUsers = freshProfiles;
+        _lastStats.users = freshProfiles.length;
+      }
+      if (clickDelta > 0) {
+        addConsoleLog('event', '🖱  Link clicks ▲ +' + clickDelta + '  (total: ' + newClicks + ')');
+        _lastStats.clicks = newClicks;
+        // Which link got the click?
+        var topNow = [...freshLinks].sort((a,b)=>(b.clicks||0)-(a.clicks||0))[0];
+        if (topNow) addConsoleLog('data', '  Top link: "' + topNow.title + '" → ' + (topNow.clicks||0) + ' clicks');
+      }
+      if (viewDelta > 0) {
+        addConsoleLog('stat', '👁  Profile views ▲ +' + viewDelta + '  (total: ' + newViews + ')');
+        _lastStats.views = newViews;
+      }
+      if (clickDelta === 0 && viewDelta === 0 && newUsers === 0) {
+        addConsoleLog('sys', 'Heartbeat — no changes detected');
+      }
+    }
+
+    // Every 5 ticks: full stats summary
+    if (tick % 5 === 0) {
+      var totalC = (await rest('links','select=clicks&order=clicks.desc&limit=500')||[]).reduce((s,l)=>s+(l.clicks||0),0);
+      var totalV = (await rest('profiles','select=profile_views&limit=500')||[]).reduce((s,u)=>s+(u.profile_views||0),0);
+      addConsoleLog('sys',  '── Stats snapshot ──────────────────────');
+      addConsoleLog('stat', 'Users: ' + allUsers.length + '  Links: ' + allLinks.length);
+      addConsoleLog('stat', 'Total clicks: ' + totalC + '  Profile views: ' + totalV);
+    }
+
+  }, 12000); // poll every 12 seconds — medium pace
+}
 
 // ── DRAWER ────────────────────────────────────────────────────────────────────
 function openDrawer(uid) {
