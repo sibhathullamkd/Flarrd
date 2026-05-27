@@ -1,25 +1,30 @@
-// ── Flarrd Dashboard JS — Full Rewrite ──────────────────────────────────────
+// ── Flarrd Dashboard JS — Fixed Version ──────────────────────────────────────
 
 var SUPABASE_URL = 'https://ftnykcpmtwusryrivvwe.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_Z3RDyV6ZIwZ09EhfHMjZrA_WfXOI1KF';
 var SITE_URL = 'https://flarrd.pages.dev';
 
 var currentUser = null, profile = null, allLinks = [], selectedTheme = 'dark';
-var _supabase = null;
 
-// ── Init Supabase ─────────────────────────────────────────────────────────────
-function getSupabase() {
-  if (!_supabase) _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
-  return _supabase;
-}
+// ── Init Supabase — use singleton from config.js ──────────────────────────────
 var sb = null;
+function getSb() {
+  if (!sb) {
+    sb = window._supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+  }
+  return sb;
+}
 
-// ── REST helpers (bypass SDK for anon reads) ──────────────────────────────────
+// ── REST helpers (for anon reads) ─────────────────────────────────────────────
 async function sbRest(table, query) {
-  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
-    headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Accept':'application/json'}
-  });
-  return r.json();
+  try {
+    var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Accept':'application/json'}
+    });
+    return r.json();
+  } catch(e) { return []; }
 }
 
 // ── Platform icons ────────────────────────────────────────────────────────────
@@ -61,20 +66,37 @@ var THEMES = [
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
-  sb = getSupabase();
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { window.location.href = 'index.html'; return; }
-  currentUser = session.user;
-  await loadProfile();
-  await loadLinks();
-  initUI();
-  renderThemes();
-  registerSession();
+  try {
+    sb = getSb();
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'index.html'; return; }
+    currentUser = session.user;
+
+    // Listen for auth state changes (handles token refresh & sign out)
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        window.location.href = 'index.html';
+      }
+    });
+
+    await loadProfile();
+    await loadLinks();
+    await loadAnalyticsStats();
+    initUI();
+    renderThemes();
+    registerSession();
+  } catch(e) {
+    console.error('Boot error:', e);
+    window.location.href = 'index.html';
+  }
 })();
 
 async function loadProfile() {
-  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  if (error) console.error('Profile load error:', error);
   profile = data || {};
+  // Ensure email is set
+  if (!profile.email) profile.email = currentUser.email;
   selectedTheme = profile.theme || 'dark';
   updateSidebarUser();
   fillProfileForm();
@@ -83,7 +105,8 @@ async function loadProfile() {
 }
 
 async function loadLinks() {
-  const { data } = await sb.from('links').select('*').eq('user_id', currentUser.id).order('position', { ascending: true });
+  const { data, error } = await sb.from('links').select('*').eq('user_id', currentUser.id).order('position', { ascending: true });
+  if (error) console.error('Links load error:', error);
   allLinks = data || [];
   renderLinks();
   renderOverviewLinks();
@@ -91,19 +114,48 @@ async function loadLinks() {
   updateStats();
 }
 
+// Load real analytics data from analytics_events table
+async function loadAnalyticsStats() {
+  try {
+    var sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    var data = await sbRest('analytics_events',
+      'user_id=eq.' + currentUser.id +
+      '&created_at=gte.' + sevenDaysAgo.toISOString() +
+      '&select=event_type,created_at'
+    );
+    if (Array.isArray(data)) {
+      var views = data.filter(e => e.event_type === 'profile_view').length;
+      var clicks = data.filter(e => e.event_type === 'link_click').length;
+      // Update profile_views from actual profile record (already loaded)
+    }
+  } catch(e) { console.error('Analytics stats error:', e); }
+}
+
 function updateSidebarUser() {
-  const name = profile.full_name || currentUser.email.split('@')[0];
-  setText('s-name', name);
+  // Determine best display name
+  var displayName = profile.full_name ||
+    (currentUser.user_metadata && (currentUser.user_metadata.full_name || currentUser.user_metadata.name)) ||
+    (profile.email || currentUser.email || '').split('@')[0] ||
+    'User';
+
+  setText('s-name', displayName);
   setText('s-handle', '@' + (profile.username || '...'));
+
   const av = document.getElementById('s-avatar');
   if (av) {
-    if (profile.avatar_url) av.innerHTML = '<img src="' + profile.avatar_url + '" alt="avatar"/>';
-    else av.textContent = name.charAt(0).toUpperCase();
+    if (profile.avatar_url) {
+      av.innerHTML = '<img src="' + profile.avatar_url + '" alt="avatar" onerror="this.parentElement.textContent=\'' + displayName.charAt(0).toUpperCase() + '\'"/>';
+    } else {
+      av.textContent = displayName.charAt(0).toUpperCase();
+    }
     av.onclick = () => showTab('profile', null);
   }
+
   const hour = new Date().getHours();
   const g = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  setText('greeting', g + ', ' + name.split(' ')[0] + '!');
+  setText('greeting', g + ', ' + displayName.split(' ')[0] + '!');
+
   const url = SITE_URL + '/u/profile.html?u=' + (profile.username || '');
   const plb = document.getElementById('preview-link-btn');
   if (plb) plb.href = url;
@@ -116,11 +168,14 @@ function fillProfileForm() {
   setVal('p-location', profile.location || '');
   setVal('p-website', profile.website || '');
   setVal('quick-bio', profile.bio || '');
-  // Update big avatar in profile tab
   const bigAv = document.getElementById('big-avatar');
   if (bigAv) {
-    if (profile.avatar_url) bigAv.innerHTML = '<img src="' + profile.avatar_url + '" alt="avatar"/><div class="avatar-edit-overlay"><i class="fa-solid fa-camera"></i></div>';
-    else bigAv.innerHTML = (profile.full_name || 'U').charAt(0).toUpperCase() + '<div class="avatar-edit-overlay"><i class="fa-solid fa-camera"></i></div>';
+    var name = profile.full_name || 'U';
+    if (profile.avatar_url) {
+      bigAv.innerHTML = '<img src="' + profile.avatar_url + '" alt="avatar"/><div class="avatar-edit-overlay"><i class="fa-solid fa-camera"></i></div>';
+    } else {
+      bigAv.innerHTML = name.charAt(0).toUpperCase() + '<div class="avatar-edit-overlay"><i class="fa-solid fa-camera"></i></div>';
+    }
     bigAv.onclick = () => openAvatarModal();
   }
   renderProfilePreview();
@@ -160,7 +215,10 @@ function showTab(name, btn) {
   if (name === 'profile') renderProfilePreview();
   if (name === 'analytics') renderAnalytics();
   if (name === 'account') loadSessions();
-  if (window.innerWidth <= 700) { document.getElementById('sidebar')?.classList.remove('open'); document.getElementById('sidebar-overlay')?.classList.remove('open'); }
+  if (window.innerWidth <= 700) {
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('sidebar-overlay')?.classList.remove('open');
+  }
 }
 
 function toggleSidebar() {
@@ -232,7 +290,6 @@ function openLinkModal(link = null) {
   setText('link-modal-title', link ? 'Edit Link' : 'Add Link');
   renderIconGrid();
   updateIconPreview();
-  // Auto-detect platform from URL
   if (link) detectPlatformFromUrl(link.url);
   document.getElementById('link-modal').classList.add('open');
   setTimeout(() => document.getElementById('link-title')?.focus(), 100);
@@ -284,10 +341,12 @@ async function saveLink() {
   if (!title || !url) { toast('Title and URL are required', 'error'); return; }
   if (!url.startsWith('http')) { toast('URL must start with http:// or https://', 'error'); return; }
   if (id) {
-    await sb.from('links').update({ title, url, icon: selectedIcon, category, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await sb.from('links').update({ title, url, icon: selectedIcon, category, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
     toast('Link updated');
   } else {
-    await sb.from('links').insert({ title, url, icon: selectedIcon, category, user_id: currentUser.id, clicks: 0, active: true, position: allLinks.length, created_at: new Date().toISOString() });
+    const { error } = await sb.from('links').insert({ title, url, icon: selectedIcon, category, user_id: currentUser.id, clicks: 0, active: true, position: allLinks.length, created_at: new Date().toISOString() });
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
     toast('Link added');
   }
   closeLinkModal();
@@ -327,10 +386,11 @@ async function saveProfile() {
   if (username.length < 3) { showMsg(msg, 'Username must be at least 3 characters', true); return; }
   const { data: taken } = await sb.from('profiles').select('id').eq('username', username).neq('id', currentUser.id).maybeSingle();
   if (taken) { showMsg(msg, 'Username already taken', true); return; }
-  await sb.from('profiles').update({ full_name: name, username, bio, location, website }).eq('id', currentUser.id);
+  const { error } = await sb.from('profiles').update({ full_name: name, username, bio, location, website }).eq('id', currentUser.id);
+  if (error) { showMsg(msg, error.message, true); return; }
   showMsg(msg, 'Profile saved ✓');
   await loadProfile();
-  setTimeout(() => { msg.textContent = ''; }, 3000);
+  setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
 }
 
 async function saveQuickBio() {
@@ -360,7 +420,7 @@ function renderProfilePreview() {
 }
 
 // ── AVATAR ────────────────────────────────────────────────────────────────────
-var cropperImg = null, cropData = {x:0,y:0,size:100};
+var cropData = {x:0,y:0,size:100};
 
 function openAvatarModal() {
   document.getElementById('avatar-modal').classList.add('open');
@@ -475,26 +535,43 @@ async function renderAnalytics() {
     </div>`;
   }).join('');
 
-  // Mini chart: last 7 days
   await renderMiniChart();
 }
 
 async function renderMiniChart() {
   const el = document.getElementById('views-chart');
-  if (!el || !profile.id) return;
+  if (!el || !currentUser) return;
 
-  // Get analytics events for last 7 days
-  var sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const events = await sbRest('analytics_events', 'user_id=eq.' + profile.id + '&created_at=gte.' + sevenDaysAgo.toISOString() + '&order=created_at.asc');
+  var sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+  var events = [];
+  try {
+    events = await sbRest('analytics_events',
+      'user_id=eq.' + currentUser.id +
+      '&created_at=gte.' + sevenDaysAgo.toISOString() +
+      '&order=created_at.asc'
+    );
+  } catch(e) { console.error('Chart data error:', e); }
 
   var days = [];
   for (var i = 6; i >= 0; i--) {
-    var d = new Date(); d.setDate(d.getDate() - i);
-    days.push({ date: d.toISOString().slice(0,10), label: d.toLocaleDateString('en',{weekday:'short'}).slice(0,2), views: 0, clicks: 0 });
+    var d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push({
+      date: d.toISOString().slice(0,10),
+      label: d.toLocaleDateString('en',{weekday:'short'}).slice(0,2),
+      views: 0,
+      clicks: 0
+    });
   }
+
   (events || []).forEach(ev => {
     var day = days.find(d => d.date === ev.created_at.slice(0,10));
-    if (day) { if (ev.event_type === 'profile_view') day.views++; else if (ev.event_type === 'link_click') day.clicks++; }
+    if (day) {
+      if (ev.event_type === 'profile_view') day.views++;
+      else if (ev.event_type === 'link_click') day.clicks++;
+    }
   });
 
   var maxVal = Math.max(...days.map(d => d.views + d.clicks), 1);
@@ -509,41 +586,45 @@ async function renderMiniChart() {
 
 // ── SESSIONS ──────────────────────────────────────────────────────────────────
 async function registerSession() {
-  var ua = navigator.userAgent;
-  var browser = ua.includes('Chrome') ? 'Chrome' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : ua.includes('Edge') ? 'Edge' : 'Other';
-  var os = ua.includes('Windows') ? 'Windows' : ua.includes('Mac') ? 'macOS' : ua.includes('Linux') ? 'Linux' : ua.includes('Android') ? 'Android' : ua.includes('iPhone')||ua.includes('iPad') ? 'iOS' : 'Unknown';
-  var device = ua.includes('Mobile') || ua.includes('Android') ? 'Mobile' : 'Desktop';
-  var sid = localStorage.getItem('flarrd_sid');
-  if (!sid) { sid = Math.random().toString(36).slice(2); localStorage.setItem('flarrd_sid', sid); }
-  // Upsert by checking existing
-  var existing = await sb.from('user_sessions').select('id').eq('user_id', currentUser.id).eq('user_agent', ua).maybeSingle();
-  if (existing.data) {
-    await sb.from('user_sessions').update({ last_seen: new Date().toISOString(), is_active: true }).eq('id', existing.data.id);
-  } else {
-    await sb.from('user_sessions').insert({ user_id: currentUser.id, user_agent: ua, browser, os, device, is_active: true });
-  }
+  try {
+    var ua = navigator.userAgent;
+    var browser = ua.includes('Chrome') ? 'Chrome' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : ua.includes('Edge') ? 'Edge' : 'Other';
+    var os = ua.includes('Windows') ? 'Windows' : ua.includes('Mac') ? 'macOS' : ua.includes('Linux') ? 'Linux' : ua.includes('Android') ? 'Android' : (ua.includes('iPhone')||ua.includes('iPad')) ? 'iOS' : 'Unknown';
+    var device = (ua.includes('Mobile') || ua.includes('Android')) ? 'Mobile' : 'Desktop';
+    var existing = await sb.from('user_sessions').select('id').eq('user_id', currentUser.id).eq('user_agent', ua).maybeSingle();
+    if (existing.data) {
+      await sb.from('user_sessions').update({ last_seen: new Date().toISOString(), is_active: true }).eq('id', existing.data.id);
+    } else {
+      await sb.from('user_sessions').insert({ user_id: currentUser.id, user_agent: ua, browser, os, device, is_active: true });
+    }
+  } catch(e) { console.error('Session register error:', e); }
 }
 
 async function loadSessions() {
   const el = document.getElementById('sessions-list');
   if (!el) return;
   el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px">Loading sessions...</div>';
-  var data = await sbRest('user_sessions', 'user_id=eq.' + currentUser.id + '&order=last_seen.desc');
-  if (!data || !data.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px">No sessions found.</div>'; return; }
-  var now = Date.now();
-  el.innerHTML = data.map(s => {
-    var ago = timeAgo(s.last_seen);
-    var isRecent = (now - new Date(s.last_seen).getTime()) < 5 * 60 * 1000;
-    return `<div class="session-item">
-      <div class="session-dot ${isRecent ? '' : 'old'}"></div>
-      <div class="session-info">
-        <div class="session-device"><i class="fa-solid fa-${s.device === 'Mobile' ? 'mobile' : 'desktop'}" style="margin-right:6px;opacity:0.6"></i>${esc(s.browser)} on ${esc(s.os)}</div>
-        <div class="session-meta">${esc(s.device)} · Last seen ${ago}</div>
-      </div>
-      ${isRecent ? '<span style="font-size:10px;color:var(--green);background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:20px">Current</span>' : 
-        '<button class="session-kill" onclick="killSession(\'' + s.id + '\',this)">Revoke</button>'}
-    </div>`;
-  }).join('');
+  try {
+    var data = await sbRest('user_sessions', 'user_id=eq.' + currentUser.id + '&order=last_seen.desc');
+    if (!data || !data.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px">No sessions found.</div>'; return; }
+    var now = Date.now();
+    el.innerHTML = data.map(s => {
+      var ago = timeAgo(s.last_seen);
+      var isRecent = (now - new Date(s.last_seen).getTime()) < 5 * 60 * 1000;
+      return `<div class="session-item">
+        <div class="session-dot ${isRecent ? '' : 'old'}"></div>
+        <div class="session-info">
+          <div class="session-device"><i class="fa-solid fa-${s.device === 'Mobile' ? 'mobile' : 'desktop'}" style="margin-right:6px;opacity:0.6"></i>${esc(s.browser)} on ${esc(s.os)}</div>
+          <div class="session-meta">${esc(s.device)} · Last seen ${ago}</div>
+        </div>
+        ${isRecent ?
+          '<span style="font-size:10px;color:var(--green);background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:20px">Current</span>' :
+          '<button class="session-kill" onclick="killSession(\'' + s.id + '\',this)">Revoke</button>'}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px">Error loading sessions.</div>';
+  }
 }
 
 async function killSession(id, btn) {
@@ -568,7 +649,7 @@ async function saveAccount() {
     showMsg(msg, 'Info updated ✓');
   }
   await loadProfile();
-  setTimeout(() => msg.textContent = '', 4000);
+  setTimeout(() => { if (msg) msg.textContent = ''; }, 4000);
 }
 
 async function changePassword() {
@@ -581,7 +662,7 @@ async function changePassword() {
   if (error) { showMsg(msg, error.message, true); return; }
   showMsg(msg, 'Password updated ✓');
   setVal('acc-pw', ''); setVal('acc-pw2', '');
-  setTimeout(() => msg.textContent = '', 3000);
+  setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
 }
 
 function confirmDeleteAccount() {
@@ -601,9 +682,16 @@ function confirmDeleteAccount() {
   });
 }
 
+// ── SIGN OUT ──────────────────────────────────────────────────────────────────
 async function signOut() {
-  await sb.auth.signOut();
-  window.location.href = 'index.html';
+  try {
+    await sb.auth.signOut();
+  } catch(e) {
+    console.error('SignOut error:', e);
+  } finally {
+    // Always redirect, even if signOut throws
+    window.location.href = 'index.html';
+  }
 }
 
 // ── CONFIRM DIALOG ────────────────────────────────────────────────────────────
@@ -642,5 +730,7 @@ function timeAgo(iso) {
   return Math.floor(diff/86400) + 'd ago';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLinkModal(); closeConfirm(); closeAvatarModal(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeLinkModal(); closeConfirm(); closeAvatarModal(); }
+});
 document.addEventListener('DOMContentLoaded', initAvatarUpload);
