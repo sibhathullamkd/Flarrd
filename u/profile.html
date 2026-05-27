@@ -227,8 +227,28 @@ function showNotFound() {
     '</div>';
 }
 
-async function trackClick(linkId, currentClicks) {
-  sbPatch('links','id=eq.'+linkId,{clicks:(currentClicks||0)+1});
+async function trackClick(linkId, currentClicks, userId) {
+  // Increment click count on the link
+  sbPatch('links', 'id=eq.'+linkId, {clicks:(currentClicks||0)+1});
+  // Log analytics event
+  if (userId) {
+    fetch(SUPABASE_URL+'/rest/v1/analytics_events', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        event_type: 'link_click',
+        link_id: linkId,
+        referrer: document.referrer || null,
+        created_at: new Date().toISOString()
+      })
+    }).catch(()=>{});
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -242,7 +262,25 @@ async function trackClick(linkId, currentClicks) {
     applyTheme(profile.theme||'dark');
     document.title = (profile.full_name||username)+' — Flarrd';
 
+    // Increment profile views
     sbPatch('profiles','id=eq.'+profile.id,{profile_views:(profile.profile_views||0)+1});
+
+    // Log profile view analytics event
+    fetch(SUPABASE_URL+'/rest/v1/analytics_events', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        user_id: profile.id,
+        event_type: 'profile_view',
+        referrer: document.referrer || null,
+        created_at: new Date().toISOString()
+      })
+    }).catch(()=>{});
 
     var links = await sbGet('links','user_id=eq.'+profile.id+'&active=eq.true&order=position.asc');
     links = links||[];
@@ -261,7 +299,7 @@ async function trackClick(linkId, currentClicks) {
           var icon = getPlatformIcon(l.url, l.icon);
           return '<a class="link-btn" href="'+escHtml(l.url)+'" target="_blank" rel="noopener" '+
             'style="animation-delay:'+(i*0.06)+'s" '+
-            'onclick="trackClick(\''+l.id+'\','+(l.clicks||0)+')">' +
+            'onclick="trackClick(\''+l.id+'\','+(l.clicks||0)+',\''+profile.id+'\')">' +
             '<div class="link-icon-wrap">'+icon+'</div>' +
             '<span class="link-label">'+escHtml(l.title)+'</span>' +
             '<i class="fa-solid fa-arrow-up-right link-arrow"></i>' +
