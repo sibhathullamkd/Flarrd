@@ -186,16 +186,25 @@ function fillAccountForm() {
   setVal('acc-email', profile.email || currentUser.email || '');
 }
 
-function updateStats() {
+async function updateStats() {
   const totalClicks = allLinks.reduce((s, l) => s + (l.clicks || 0), 0);
   setText('stat-links', allLinks.length);
   setText('stat-clicks', totalClicks);
-  setText('stat-views', profile.profile_views || 0);
-  const top = [...allLinks].sort((a, b) => (b.clicks || 0) - (a.clicks || 0))[0];
-  setText('stat-top', top ? (top.title.substring(0, 12) + (top.title.length > 12 ? '…' : '')) : '—');
   setText('an-clicks', totalClicks);
   setText('an-links', allLinks.filter(l => l.active !== false).length);
-  setText('an-views', profile.profile_views || 0);
+  const top = [...allLinks].sort((a, b) => (b.clicks || 0) - (a.clicks || 0))[0];
+  setText('stat-top', top ? (top.title.substring(0, 12) + (top.title.length > 12 ? '…' : '')) : '—');
+  // Always fetch fresh profile_views from DB (not cached value)
+  try {
+    var fresh = await sbRest('profiles', 'id=eq.' + currentUser.id + '&select=profile_views');
+    var views = (fresh && fresh[0]) ? (fresh[0].profile_views || 0) : (profile.profile_views || 0);
+    setText('stat-views', views);
+    setText('an-views', views);
+    profile.profile_views = views;
+  } catch(e) {
+    setText('stat-views', profile.profile_views || 0);
+    setText('an-views', profile.profile_views || 0);
+  }
 }
 
 function updateOverview() {
