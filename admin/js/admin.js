@@ -1,31 +1,32 @@
-// ── Flarrd Admin JS — Full Enhanced Version ──────────────────────────────────
-var SUPABASE_URL = 'https://ftnykcpmtwusryrivvwe.supabase.co';
-var SUPABASE_ANON_KEY = 'sb_publishable_Z3RDyV6ZIwZ09EhfHMjZrA_WfXOI1KF';
-
+// ── Flarrd Admin JS — Fixed Version ──────────────────────────────────────────
 var allUsers = [], allLinks = [], allSessions = [];
 var currentDrawerUserId = null, confirmCallback = null;
 var actLog = JSON.parse(sessionStorage.getItem('flarrd_admin_log') || '[]');
 var liveInterval = null, consoleInterval = null;
-var _sb = null;
+var sb = null;
 
-function getSb() {
-  if (!_sb) _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:false}});
-  return _sb;
-}
-var sb;
+// Wait for DOM before doing anything
+document.addEventListener('DOMContentLoaded', function() {
+  // Use the supabase client from config.js (already initialized)
+  sb = window._supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:false}});
+
+  // Check if already logged in
+  if (sessionStorage.getItem('flarrd_admin') === '1') bootAdmin();
+
+  // Keyboard submit for login
+  document.getElementById('ap').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
+  document.getElementById('au').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
+});
 
 // REST helper for anon reads
 async function rest(table, query) {
-  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
-    headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Accept':'application/json'}
-  });
-  return r.ok ? r.json() : [];
+  try {
+    var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Accept':'application/json'}
+    });
+    return r.ok ? r.json() : [];
+  } catch(e) { return []; }
 }
-
-if (sessionStorage.getItem('flarrd_admin') === '1') bootAdmin();
-
-document.getElementById('ap').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
-document.getElementById('au').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
 
 function adminLogin() {
   var u = document.getElementById('au').value.trim();
@@ -50,7 +51,6 @@ function adminLogout() {
 }
 
 function bootAdmin() {
-  sb = getSb();
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('admin-panel').style.display = 'block';
   startClock(); loadAll(); addLog('✅ Admin signed in'); renderLog();
@@ -120,7 +120,6 @@ function renderOverview() {
       </tr>`;
     }).join('');
   }
-  // Top links
   const ltbody = document.getElementById('top-links-tbody');
   const topLinks = allLinks.slice(0, 10);
   if (!topLinks.length) { ltbody.innerHTML = '<tr><td colspan="4" class="empty">No links yet.</td></tr>'; }
@@ -236,9 +235,8 @@ function startLivePolling() {
 }
 
 async function updateLive() {
-  // Clean old presence (>3min)
   var cutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-  await sb.from('live_presence').delete().lt('last_seen', cutoff);
+  try { await sb.from('live_presence').delete().lt('last_seen', cutoff); } catch(e){}
 
   var data = await rest('live_presence', 'order=last_seen.desc&limit=50');
   data = data || [];
@@ -268,7 +266,6 @@ async function updateLive() {
 
 // ── ANALYTICS GRAPHS ──────────────────────────────────────────────────────────
 async function renderAnalyticsGraphs() {
-  // Total users over time (by created_at month)
   var byMonth = {};
   allUsers.forEach(u => {
     var mo = (u.created_at||'').slice(0,7);
@@ -281,7 +278,7 @@ async function renderAnalyticsGraphs() {
   if (usersChart) {
     usersChart.innerHTML = '<div class="chart-bars">' + months.map(m => {
       var h = Math.round((byMonth[m] / maxU) * 100);
-      var label = m.slice(5); // MM
+      var label = m.slice(5);
       return `<div class="chart-bar-col">
         <div class="chart-bar" style="height:${Math.max(h,2)}%"></div>
         <div class="chart-bar-lbl">${label}</div>
@@ -289,7 +286,6 @@ async function renderAnalyticsGraphs() {
     }).join('') + '</div>';
   }
 
-  // Click distribution
   var byUser = {};
   allLinks.forEach(l => { byUser[l.user_id] = (byUser[l.user_id]||0) + (l.clicks||0); });
   var topUsers = Object.entries(byUser).sort((a,b) => b[1]-a[1]).slice(0,8);
@@ -307,7 +303,6 @@ async function renderAnalyticsGraphs() {
     }).join('') + '</div>';
   }
 
-  // Summary stats
   setText('an-total-users', allUsers.length);
   setText('an-total-links', allLinks.length);
   setText('an-total-clicks', allLinks.reduce((s,l)=>s+(l.clicks||0),0));
@@ -400,7 +395,6 @@ function openDrawer(uid) {
 function closeDrawer() {
   document.getElementById('dr-bg').classList.remove('open');
   document.getElementById('drawer').classList.remove('open');
-  // reload sessions
   if (document.getElementById('sec-sessions')?.classList.contains('active')) renderSessions();
 }
 
@@ -410,10 +404,8 @@ async function killAdminSessionDrawer(id, btn) {
   addLog('🔐 Session revoked for user ' + (currentDrawerUserId||'').slice(0,8));
   toast('Session revoked');
   await renderSessions();
-  openDrawer(currentDrawerUserId); // refresh drawer
+  openDrawer(currentDrawerUserId);
 }
-
-var SITE_URL = 'https://flarrd.pages.dev';
 
 // ── MODALS ────────────────────────────────────────────────────────────────────
 function cm(id) { document.getElementById(id).classList.remove('open'); }
